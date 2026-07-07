@@ -25,14 +25,38 @@ function getHourBucket(login, logout) {
 
 export default function EmployeeCalendar() {
   const [records, setRecords] = useState([]);
+  const [joinDate, setJoinDate] = useState(null);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    api.get("/attendance/my")
-      .then((r) => setRecords(r.data))
-      .catch(() => toast.error("Failed to load attendance"));
+    Promise.all([api.get("/attendance/my"), api.get("/users/me")])
+      .then(([attRes, userRes]) => {
+        setRecords(attRes.data);
+        const jd = new Date(userRes.data.created_at);
+        setJoinDate(jd);
+        // Start calendar from join month
+        setMonth(jd.getMonth() + 1);
+        setYear(jd.getFullYear());
+      })
+      .catch(() => toast.error("Failed to load data"));
   }, []);
+
+  // Build available months from join date to today
+  const today = new Date();
+  const getAvailableMonths = () => {
+    if (!joinDate) return [];
+    const months = [];
+    let d = new Date(joinDate.getFullYear(), joinDate.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 1);
+    while (d <= end) {
+      months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+      d.setMonth(d.getMonth() + 1);
+    }
+    return months;
+  };
+
+  const availableMonths = getAvailableMonths();
 
   const filtered = records.filter((r) => {
     const d = new Date(r.date);
@@ -46,7 +70,6 @@ export default function EmployeeCalendar() {
 
   const daysInMonth = getDaysInMonth(new Date(year, month - 1));
   const firstDay = getDay(startOfMonth(new Date(year, month - 1)));
-  const today = new Date();
 
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -54,24 +77,38 @@ export default function EmployeeCalendar() {
 
   const presentDays = filtered.filter((r) => r.login_time).length;
   const totalHours = filtered.reduce((acc, r) => {
-    if (r.login_time && r.logout_time) {
+    if (r.login_time && r.logout_time)
       return acc + (new Date(r.logout_time + "Z") - new Date(r.login_time + "Z")) / 3600000;
-    }
     return acc;
   }, 0);
 
+  const handleMonthChange = (val) => {
+    const [y, m] = val.split("-").map(Number);
+    setYear(y);
+    setMonth(m);
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">My Calendar</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">My Calendar</h1>
+      {joinDate && (
+        <p className="text-sm text-gray-400 mb-6">
+          Member since {format(joinDate, "MMMM d, yyyy")}
+        </p>
+      )}
 
-      <div className="flex gap-2 mb-6">
-        <select className="input-field max-w-[140px]" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-          {Array.from({ length: 12 }, (_, i) => (
-            <option key={i + 1} value={i + 1}>{format(new Date(2024, i), "MMMM")}</option>
+      {/* Month selector — only from join date to today */}
+      <div className="mb-6">
+        <select
+          className="input-field max-w-[200px]"
+          value={`${year}-${month}`}
+          onChange={(e) => handleMonthChange(e.target.value)}
+        >
+          {availableMonths.map(({ year: y, month: m }) => (
+            <option key={`${y}-${m}`} value={`${y}-${m}`}>
+              {format(new Date(y, m - 1), "MMMM yyyy")}
+            </option>
           ))}
-        </select>
-        <select className="input-field max-w-[100px]" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-          {[2024, 2025, 2026].map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
@@ -93,27 +130,46 @@ export default function EmployeeCalendar() {
       </div>
 
       <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700">
+            {format(new Date(year, month - 1), "MMMM yyyy")}
+          </h2>
+        </div>
+
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
             <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">{d}</div>
           ))}
         </div>
+
         <div className="grid grid-cols-7 gap-1">
           {cells.map((day, i) => {
             if (!day) return <div key={`e-${i}`} />;
+
+            const cellDate = new Date(year, month - 1, day);
+            const isFuture = cellDate > today;
+            const isBeforeJoin = joinDate && cellDate < new Date(joinDate.getFullYear(), joinDate.getMonth(), joinDate.getDate());
+            const isToday = day === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear();
+
+            if (isBeforeJoin) {
+              return (
+                <div key={day} className="bg-gray-50 rounded-lg p-1 text-center aspect-square flex items-center justify-center">
+                  <span className="text-[10px] text-gray-200 font-semibold">{day}</span>
+                </div>
+              );
+            }
+
             const rec = recordMap[day];
             const bucket = rec ? getHourBucket(rec.login_time, rec.logout_time) : "leave";
-            const isFuture = new Date(year, month - 1, day) > today;
             const color = isFuture ? { bg: "bg-gray-50", text: "text-gray-300" } : HOUR_COLORS[bucket];
             const hours = rec?.login_time && rec?.logout_time
               ? ((new Date(rec.logout_time + "Z") - new Date(rec.login_time + "Z")) / 3600000).toFixed(1)
               : null;
-            const isToday = day === today.getDate() && month === today.getMonth() + 1 && year === today.getFullYear();
 
             return (
               <div
                 key={day}
-                className={`${color.bg} ${color.text} rounded-lg p-1 text-center aspect-square flex flex-col items-center justify-center relative ${
+                className={`${color.bg} ${color.text} rounded-lg p-1 text-center aspect-square flex flex-col items-center justify-center ${
                   isToday ? "ring-2 ring-blue-400" : ""
                 }`}
               >
@@ -132,6 +188,10 @@ export default function EmployeeCalendar() {
               <span className="text-xs text-gray-500">{v.label}</span>
             </div>
           ))}
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-gray-50 border border-gray-200" />
+            <span className="text-xs text-gray-400">Before joining</span>
+          </div>
         </div>
       </div>
     </div>
