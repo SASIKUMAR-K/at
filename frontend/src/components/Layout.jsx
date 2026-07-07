@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   Users, LayoutDashboard, Calendar, BarChart2,
-  ClipboardList, LogOut, User, Menu, X, ChevronDown
+  ClipboardList, LogOut, User, Menu, X, ChevronDown, AlertTriangle,
 } from "lucide-react";
 
 const adminNav = [
@@ -25,6 +25,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
   const profileRef = useRef(null);
 
   const nav = user?.role === "employee" ? employeeNav : adminNav;
@@ -38,6 +39,11 @@ export default function Layout({ children }) {
   }, []);
 
   const handleLogout = () => {
+    setProfileOpen(false);
+    setLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate("/login");
   };
@@ -129,9 +135,29 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
+
+      {/* Logout Confirmation */}
+      {logoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mb-4">
+              <AlertTriangle className="w-7 h-7 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Logout</h3>
+            <p className="text-gray-500 text-sm mb-6">Are you sure you want to logout?</p>
+            <div className="flex gap-3">
+              <button className="btn-secondary flex-1" onClick={() => setLogoutConfirm(false)}>
+                Cancel
+              </button>
+              <button className="btn-danger flex-1" onClick={confirmLogout}>
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

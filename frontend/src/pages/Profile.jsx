@@ -1,14 +1,43 @@
 import { useState, useEffect } from "react";
-import api from "../../api/axios";
+import api from "../api/axios";
 import toast from "react-hot-toast";
-import { useAuth } from "../../context/AuthContext";
-import { User, Lock } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
+
+const pwRules = (pw) => ({
+  length: pw.length >= 8,
+  lower: /[a-z]/.test(pw),
+  upper: /[A-Z]/.test(pw),
+  number: /[0-9]/.test(pw),
+});
+
+function PasswordStrength({ password }) {
+  if (!password) return null;
+  const rules = pwRules(password);
+  const checks = [
+    { key: "length", label: "At least 8 characters" },
+    { key: "lower", label: "One lowercase letter" },
+    { key: "upper", label: "One uppercase letter" },
+    { key: "number", label: "One number" },
+  ];
+  return (
+    <div className="mt-2 space-y-1">
+      {checks.map(({ key, label }) => (
+        <div key={key} className={`flex items-center gap-1.5 text-xs ${rules[key] ? "text-green-600" : "text-gray-400"}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${rules[key] ? "bg-green-500" : "bg-gray-300"}`} />
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Profile() {
-  const { user: authUser, login } = useAuth();
+  const { user: authUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "" });
   const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
   const [tab, setTab] = useState("profile");
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +66,11 @@ export default function Profile() {
 
   const handlePasswordSave = async (e) => {
     e.preventDefault();
+    const rules = pwRules(pwForm.new_password);
+    if (!Object.values(rules).every(Boolean)) {
+      toast.error("Password does not meet requirements");
+      return;
+    }
     if (pwForm.new_password !== pwForm.confirm) {
       toast.error("Passwords do not match");
       return;
@@ -133,33 +167,55 @@ export default function Profile() {
           <form onSubmit={handlePasswordSave} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-              <input
-                type="password"
-                className="input-field"
-                value={pwForm.current_password}
-                onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPw.current ? "text" : "password"}
+                  className="input-field pr-10"
+                  value={pwForm.current_password}
+                  onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+                  required
+                />
+                <button type="button" onClick={() => setShowPw({ ...showPw, current: !showPw.current })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-              <input
-                type="password"
-                className="input-field"
-                value={pwForm.new_password}
-                onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPw.new ? "text" : "password"}
+                  className="input-field pr-10"
+                  value={pwForm.new_password}
+                  onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+                  required
+                />
+                <button type="button" onClick={() => setShowPw({ ...showPw, new: !showPw.new })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <PasswordStrength password={pwForm.new_password} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-              <input
-                type="password"
-                className="input-field"
-                value={pwForm.confirm}
-                onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPw.confirm ? "text" : "password"}
+                  className={`input-field pr-10 ${pwForm.confirm && pwForm.confirm !== pwForm.new_password ? "border-red-400" : ""}`}
+                  value={pwForm.confirm}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                  required
+                />
+                <button type="button" onClick={() => setShowPw({ ...showPw, confirm: !showPw.confirm })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {pwForm.confirm && pwForm.confirm !== pwForm.new_password && (
+                <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
+              )}
             </div>
             <button type="submit" className="btn-primary w-full" disabled={loading}>
               {loading ? "Changing..." : "Change Password"}

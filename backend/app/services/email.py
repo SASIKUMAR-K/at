@@ -12,6 +12,24 @@ conf = ConnectionConfig(
     USE_CREDENTIALS=True,
 )
 
+async def send_reset_email(email: str, name: str, token: str):
+    body = f"""
+    <h2>Password Reset Request</h2>
+    <p>Hello <b>{name}</b>,</p>
+    <p>Your password reset code is:</p>
+    <h1 style="letter-spacing:8px;color:#2563eb;">{token}</h1>
+    <p>This code expires in <b>15 minutes</b>.</p>
+    <p>If you did not request this, ignore this email.</p>
+    """
+    message = MessageSchema(
+        subject="Password Reset Code - Attendance System",
+        recipients=[email],
+        body=body,
+        subtype=MessageType.html,
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
 async def send_credentials_email(email: str, name: str, password: str, role: str):
     body = f"""
     <h2>Welcome to Attendance Management System</h2>
