@@ -55,7 +55,7 @@ function FieldError({ msg }) {
 }
 
 export default function Login() {
-  const [mode, setMode] = useState("login"); // login | forgot | reset
+  const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [resetForm, setResetForm] = useState({ email: "", token: "", new_password: "", confirm: "" });
@@ -74,12 +74,12 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     const emailErr = validateEmail(form.email);
-    if (emailErr) { setErrors({ ...errors, email: emailErr }); return; }
-    if (!form.password) { setErrors({ ...errors, password: "Password is required" }); return; }
-    setErrors({ email: "", password: "" });
+    if (emailErr) { setErrors({ email: emailErr, password: "" }); return; }
+    if (!form.password) { setErrors({ email: "", password: "Password is required" }); return; }
     setLoading(true);
     try {
       const { data } = await api.post("/auth/login", form);
+      setErrors({ email: "", password: "" });
       login(data);
       toast.success(`Welcome back, ${data.name}!`);
       if (data.role === "employee") navigate("/employee/attendance");
@@ -199,8 +199,7 @@ export default function Login() {
                       className={`input-field pl-9 ${errors.email ? "border-red-400 bg-red-50 focus:ring-red-300" : ""}`}
                       placeholder="you@company.com"
                       value={form.email}
-                      onChange={(e) => { setForm({ ...form, email: e.target.value }); setErrors({ ...errors, email: "" }); }}
-                      onBlur={(e) => setErrors({ ...errors, email: validateEmail(e.target.value) })}
+                      onChange={(e) => { setForm({ ...form, email: e.target.value }); setErrors((prev) => ({ ...prev, email: "" })); }}
                     />
                   </div>
                   <FieldError msg={errors.email} />
@@ -221,7 +220,7 @@ export default function Login() {
                       className={`input-field pl-9 pr-10 ${errors.password ? "border-red-400 bg-red-50 focus:ring-red-300" : ""}`}
                       placeholder="••••••••"
                       value={form.password}
-                      onChange={(e) => { setForm({ ...form, password: e.target.value }); setErrors({ ...errors, password: "" }); }}
+                      onChange={(e) => { setForm({ ...form, password: e.target.value }); setErrors((prev) => ({ ...prev, password: "" })); }}
                     />
                     <button type="button" onClick={() => setShowPw(!showPw)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
