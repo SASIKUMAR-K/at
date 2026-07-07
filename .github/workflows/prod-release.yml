@@ -1,0 +1,109 @@
+name: 🚀 Prod Release — Tag & Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Auto Version & Tag ───────────────────────────────────────────
+  release:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          git fetch --tags
+          LATEST=$(git tag --sort=-v:refname | grep '^v' | head -n1)
+          echo "latest=${LATEST:-v0.0.0}" >> $GITHUB_OUTPUT
+
+      - name: Determine version bump from PR labels / commit message
+        id: version
+        run: |
+          LATEST="${{ steps.latest_tag.outputs.latest }}"
+          MAJOR=$(echo $LATEST | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $LATEST | cut -d. -f2)
+          PATCH=$(echo $LATEST | cut -d. -f3)
+
+          MSG="${{ github.event.head_commit.message }}"
+          if echo "$MSG" | grep -qi "BREAKING\|major"; then
+            MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0
+          elif echo "$MSG" | grep -qi "feat\|feature\|minor"; then
+            MINOR=$((MINOR+1)); PATCH=0
+          else
+            PATCH=$((PATCH+1))
+          fi
+
+          VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $VERSION"
+
+      - name: Create & push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "Release ${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Deploy Backend to Vercel (Prod) ─────────────────────────────
+  deploy-backend:
+    name: Deploy Backend → Prod
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://at-api.vercel.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Prod)
+        run: |
+          npm install -g vercel
+          vercel --cwd backend --prod --yes \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }}
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+  # ── Deploy Frontend to Vercel (Prod) ────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend → Prod
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://at-app.vercel.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Prod)
+        run: |
+          npm install -g vercel
+          vercel --cwd frontend --prod --yes \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }}
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

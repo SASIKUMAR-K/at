@@ -1,0 +1,75 @@
+name: 🔍 Dev CI — PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend Lint & Test ──────────────────────────────────────────
+  backend:
+    name: Backend — Python checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check imports & syntax
+        run: python -c "import app.main; print('✅ Backend imports OK')"
+        env:
+          SECRET_KEY: test-secret-key-for-ci-only
+          DATABASE_URL: sqlite:///./test.db
+          MAIL_USERNAME: test@test.com
+          MAIL_PASSWORD: test
+          MAIL_FROM: test@test.com
+
+  # ── Frontend Lint & Build ────────────────────────────────────────
+  frontend:
+    name: Frontend — Build check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: https://at-api-dev.vercel.app
+
+  # ── PR Summary ───────────────────────────────────────────────────
+  summary:
+    name: ✅ All checks passed
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: echo "All CI checks passed. Ready for review."
