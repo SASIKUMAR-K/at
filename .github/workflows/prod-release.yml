@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://at-api.vercel.app
+      url: https://at-api-five.vercel.app
 
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://at-app.vercel.app
+      url: https://at-app-gray.vercel.app
 
     steps:
       - uses: actions/checkout@v4

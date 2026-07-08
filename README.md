@@ -9,7 +9,7 @@
 
 | Environment | Frontend | Backend |
 |-------------|----------|---------|
-| **Production** | [at-app.vercel.app](https://at-app.vercel.app) | [at-api.vercel.app](https://at-api.vercel.app) |
+| **Production** | [at-app-gray.vercel.app](https://at-app-gray.vercel.app) | [at-api-five.vercel.app](https://at-api-five.vercel.app) |
 | **Dev** | [at-app-dev.vercel.app](https://at-app-dev.vercel.app) | [at-api-dev.vercel.app](https://at-api-dev.vercel.app) |
 
 ## 🔐 Default Super Admin
